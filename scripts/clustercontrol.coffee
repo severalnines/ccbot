@@ -233,3 +233,52 @@ module.exports = (robot) ->
                   
 
   , 1000
+
+  robot.respond /createreport (.*)/i, (res) ->$
+    if args = cmon.getArguments(res.envelope.user, res.match[1])$
+      if typeof args.cluster is 'undefined'$
+        res.send("Wrong parameters given. Usage: createreport cluster <clusterid>")$
+      else$
+        POSTDATA = JSON.stringify ({$
+          token: config.cmonrpcToken$
+          name: "default"$
+          username: "ccbot"$
+          operation: "generatereport"$
+        })$
+        res.send("Creating report ...")$
+        cmon.postUrl res, '/' + args.cluster + '/reports', POSTDATA, (err, list, body) ->$
+          rc = JSON.parse body$
+          if rc.requestStatus == 'ok'$
+              res.send("Name: #{rc.data.name}\nType: #{rc.data.type}\nPath: #{rc.data.path}")$
+          else$
+            res.send("#{rc.errorString}")$
+
+  robot.respond /listreports (.*)/i, (res) ->$
+    if args = cmon.getArguments(res.envelope.user, res.match[1])$
+      if typeof args.cluster is 'undefined'$
+        res.send("Wrong parameters given. Usage: listreports cluster <clusterid>")$
+      else$
+        POSTDATA = JSON.stringify ({$
+          token: config.cmonrpcToken$
+          operation: "listreports"$
+        })$
+        res.send("Reports for cluster ID #{args.cluster}")$
+        cmon.postUrl res, '/' + args.cluster + '/reports', POSTDATA, (err, list, body) ->$
+          rc = JSON.parse body$
+          if rc.requestStatus == 'ok'$
+            res.send("Created | Filename | Type | Created By | Path | Recipients")$
+            months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']$
+            for report in rc.data$
+              created = new Date(report.timestamp*1000)$
+              year = created.getFullYear()$
+              month = months[created.getMonth()]$
+              day = created.getDate()$
+              hour = created.getHours()$
+              mins = created.getMinutes()$
+              secs = created.getSeconds()$
+              time = year + '-' + month + '-' + day + ' ' + hour + ':' + mins + ':' + secs$
+              res.send(time + "| #{report.name} | #{report.type} | #{report.generatedby} | #{report.path} | #{report.recipients}")$
+          else$
+            res.send("#{rc.errorString}")$
+
+
