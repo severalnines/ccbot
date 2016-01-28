@@ -70,7 +70,11 @@ class Cmonrpc
     try
       if list.statusCode is 200 and body
         data = JSON.parse body
-        callback(data.clusters)
+        if (data.clusters)
+          callback(data.clusters)
+        else
+          if (data.data)
+            callback(data.data)
       else
         console.log(err)
     catch error
