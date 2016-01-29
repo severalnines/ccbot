@@ -29,7 +29,7 @@ Hubot integration with Slack:
 
 ## Installing ccbot scripts
 
-Overwrite everything with the files from this repository in the ccbot directory
+Overwrite everything from the src/ directory from this repository in the ccbot directory
 Also don't forget to edit the hubot.sh with the Slack ccbot API key and the CMON RPC token
 
 Happy botting!
