@@ -15,6 +15,15 @@ This should install the necessary node.js packages as well and allow you to inst
 ## Installing Hubot framework
 
 To install the Hubot framework from scratch follow the following procedure:
+
+Ubuntu/Debian:
+- apt-get update && apt-get install npm
+Redhat/Centos:
+- yum install npm
+
+Update npm:
+- npm install -g npm
+
 - git clone https://github.com/severalnines/ccbot.git
 - mkdir /var/lib/cmon/ccbot
 - cp -ar ccbot/src/* /var/lib/cmon/ccbot
