@@ -15,10 +15,11 @@ This should install the necessary node.js packages as well and allow you to inst
 ## Installing Hubot framework
 
 To install the Hubot framework from scratch follow the following procedure:
-
-- npm install -g yo generator-hubot
+- git clone https://github.com/severalnines/ccbot.git
 - mkdir /var/lib/cmon/ccbot
+- cp -ar ccbot/src/* /var/lib/cmon/ccbot
 - cd /var/lib/cmon/ccbot
+- npm install -g yo generator-hubot
 - yo hubot
 
 
