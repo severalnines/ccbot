@@ -12,6 +12,16 @@ class Cmonrpc
 
   constructor: () ->
     @cmonmsgs = []
+    @cmonrpcTokens = []
+    if typeof config.cmonrpcToken isnt 'undefined'
+      @cmonrpcTokens = config.cmonrpcToken.split(',')
+
+  getToken: (channel, callback) ->
+    if @cmonrpcTokens and @cmonrpcTokens.length > 0
+      if typeof @cmonrpcTokens[channel] isnt 'undefined'
+        return @cmonrpcTokens[channel]
+      else
+        return false
 
   fetchUrl: (msg, url, callback) ->
     msg.http("http://#{config.cmonrpcHost}:#{config.cmonrpcPort}#{url}")
@@ -32,7 +42,10 @@ class Cmonrpc
         for clusterid, cluster of data.clusters
           msg.send "#{cluster.name}: #{cluster.statusText}"
           if cluster.status > 2
-            POSTDATA = '{ "token": "'+ config.cmonrpcToken +'", "operation": "getHosts" }' 
+            POSTDATA = JSON.stringify ({
+              token: @getToken(cluster.id)
+              operation: "getHosts"
+            })
             url = "/" + cluster.id + "/stat"
             @postUrl msg, url, POSTDATA, (err, res, body) ->
               cmon = new Cmonrpc()
@@ -137,7 +150,7 @@ class Cmonrpc
 
   scheduleBackup: (robot, msg, clusterid, job) ->
     POSTDATA = JSON.stringify ({
-      token: config.cmonrpcToken
+      token: @getToken(clusterid)
       operation: "createJob"
       job: job
     })
@@ -156,7 +169,7 @@ class Cmonrpc
 
   getJobs: (robot, clusterid, callback) ->
     POSTDATA = JSON.stringify ({
-      token: config.cmonrpcToken
+      token: @getToken(clusterid)
       operation: "getJobs"
       limit: 1
     })
@@ -170,7 +183,7 @@ class Cmonrpc
 
   getJobStatus: (robot, job, callback) ->
     POSTDATA = JSON.stringify ({
-      token: config.cmonrpcToken
+      token: @getToken(clusterid)
       operation: "getStatus"
       jobId: job.jobId
     })
@@ -184,7 +197,7 @@ class Cmonrpc
 
   getJobMessages: (robot, job, callback) ->
     POSTDATA = JSON.stringify ({
-      token: config.cmonrpcToken
+      token: @getToken(clusterid)
       operation: "getJobMessages"
       jobId: job.jobId
     })
