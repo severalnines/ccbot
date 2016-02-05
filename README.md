@@ -1,13 +1,13 @@
 # ccbot
 Repository for chatbot services with hubot, slack and others
 
-### Installing CCBot
+## Installing CCBot
 
-## Integrate CCBot on an existing Hubot framework
+### Integrate CCBot on an existing Hubot framework
 
 In principle this should be relatively easy as you already have a working Hubot chatbot, thus only copying the source files to your chatbot and add the CCBot parameters would be sufficient to make it work.
 
-# Installing CCBot scripts
+#### Installing CCBot scripts
 Copy the following files from the to your existing Hubot instance in the respective directories:
 - src/config/config.coffee
 - src/scripts/clustercontrol.coffee
@@ -29,7 +29,7 @@ As of ClusterControl version 1.2.12 there is a change in binding address of the 
 - RPC_BIND_ADDRESSES="127.0.0.1,your.ip.address.here"
 
 
-## Installing CCBot as a standalone chatbot
+### Installing CCBot as a standalone chatbot
 
 # Prerequisites
 Firstly we need to have the node.js framework installed. This can best be done by installing npm. This should install the necessary node.js packages as well and allow you to install additional modules via npm.
@@ -51,7 +51,7 @@ Don’t forget to configure your adapter accordingly in the hubot startup script
 
 Also if you choose to change CCBot’s name keep in mind not to name the bot to Hubot: the Hubot framework attempts to create a module named exactly the same as the name you give to the bot. Since the framework is already named Hubot this will cause a non-descriptive error.
 
-# Installing CCBot scripts
+#### Installing CCBot scripts
 Copy the following files to the ccbot directory:
 - src/config/config.coffee
 - src/scripts/clustercontrol.coffee
@@ -93,7 +93,7 @@ For Debian/Ubuntu:
 - sudo cp scripts/hubot.supervisord.conf /etc/supervisor/conf.d/hubot.conf
 - sudo supervisorctl update
 
-## Hubot parameters
+### Hubot parameters
 Then modify the following parameters in the Hubot environment script (/var/lib/hubot/hubot.env) or supervisord config if necessary:
 - export HUBOT_CMONRPC_TOKENS=’TOKEN0,TOKEN1,TOKEN2,TOKEN3’
 - export HUBOT_CMONRPC_HOST=’localhost’
@@ -109,7 +109,7 @@ The HUBOT_CMONRPC_MSGROOM variable contains the team’s room the chatbot has to
 - Campfire: a numeric room, which is in the url of the room
 
 
-### Hubot commands
+## Hubot commands
 You can operate Hubot by giving it commands in the chatroom. In principle it does not matter whether you issue to command in a general chatroom where Hubot is present or if it were in a private chat with the bot itself. Sending a command will be as following:
 botname command
 Where botname is the name of your Hubot bot, so if in our example Hubot is called “ccbot” and the command is “status” you would send the command be as following:
@@ -117,8 +117,8 @@ Where botname is the name of your Hubot bot, so if in our example Hubot is calle
 
 Note: when you are in a private chat with the chatbot you must omit the addressing of the bot.
 
-## Command list
-# Status
+### Command list
+#### Status
 Syntax:
 status
 
@@ -127,7 +127,7 @@ Lists the clusters in ClusterControl and shows their status.
 Example:
 @ccbot status
 
-# Full backup
+#### Full backup
 Syntax:
 backup cluster _clusterid_ host _hostname_
 
@@ -136,7 +136,7 @@ Schedules a full backup for an entire cluster using xtrabackup. Host is an optio
 Example:
 @ccbot backup cluster 1 host 10.10.12.23
 
-# Schema backup
+#### Schema backup
 Syntax:
 @backup cluster _clusterid_ schema _schema_ host _hostname_
 
@@ -145,7 +145,7 @@ Schedules a backup for a single schema using mysqldump. Host is an optional para
 Example:
 @ccbot backup cluster 1 schema important_schema
 
-# Create operational report
+#### Create operational report
 Syntax:
 createreport cluster _clusterid_
 
@@ -154,7 +154,7 @@ Creates an operational report for the given cluster
 Example:
 @ccbot createreport cluster 1
 
-# List operational reports
+#### List operational reports
 Syntax:
 listreports cluster _clusterid_
 
@@ -163,7 +163,7 @@ Lists all available reports for the given cluster
 Example:
 @ccbot listreports cluster 1
 
-# Last loglines
+#### Last loglines
 Syntax:
 lastlog cluster _cluster_ host _host_ filename _filename_ limit _limit_
 
@@ -171,8 +171,6 @@ Returns the last log lines of the given cluster/host/filename.
 
 Example:
 @ccbot lastlog cluster 1 host 10.10.12.23 filename /var/log/mysqld.log limit 5
-
-
 
 
 
