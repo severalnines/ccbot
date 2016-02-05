@@ -2,7 +2,7 @@
 #   Hubot integration with Severalnines ClusterControl.
 #
 # Configuration:
-#  HUBOT_RPC_TOKEN
+#  HUBOT_RPC_TOKENS
 #  HUBOT_RPC_HOST
 #  HUBOT_RPC_PORT
 #
@@ -10,6 +10,9 @@
 #   hubot status - Lists the clusters in ClusterControl and shows their status
 #   hubot backup cluster <clusterid> - Schedules a back for an entire cluster using xtrabackup
 #   hubot backup cluster <clusterid> schema <schema> - Schedules a backup for a single schema using mysqldump
+#   hubot lastlog cluster <cluster> host <host> filename <filename> limit <limit> - Returns the last log lines of the given cluster/host/filename
+#   hubot createreport cluster <clusterid> - Creates an operational report for the given cluster
+#   hubot listreports cluster <clusterid> - Lists all available reports for the given cluster
 #
 # Scheduling backups with create an event that follows the job until this has finished or failed
 #
@@ -27,12 +30,12 @@ module.exports = (robot) ->
   # Fetches the status of the clusters
   robot.respond /status/i, (res) ->
     POSTDATA = JSON.stringify ({
-      token: config.cmonrpcToken 
+      token: cmon.getToken(0)
     })
     cmon.postUrl res, '/0/clusters', POSTDATA, (err, list, body) ->
       cmon.cmonGetCluster robot, err, list, body, (data) ->
         for clusterid, cluster of data
-          res.send("Cluster #{cluster.name} state: #{cluster.statusText}")
+          res.send("Cluster '#{cluster.name}' state: #{cluster.statusText}")
 
   robot.respond /showlogs (.*)/i, (res) ->
     if args = cmon.getArguments(res.envelope.user, res.match[1])
@@ -41,7 +44,7 @@ module.exports = (robot) ->
         res.send("Wrong parameters given. Usage: showlogs cluster <clusterid>")
       else
         POSTDATA = JSON.stringify ({
-          token: config.cmonrpcToken
+          token: cmon.getToken(args.cluster)
           operation: "list" 
         })
         cmon.postUrl res, '/' + args.cluster+ '/log', POSTDATA, (err, list, body) ->
@@ -57,7 +60,7 @@ module.exports = (robot) ->
         res.send("Wrong parameters given. Usage: lastlog cluster <cluster> host <host> filename <filename> limit <limit>")
       else
         POSTDATA = JSON.stringify ({
-          token: config.cmonrpcToken
+          token: cmon.getToken(args.cluster)
           operation: "contents" 
           hostname: args.host
           filename: args.filename
@@ -88,7 +91,7 @@ module.exports = (robot) ->
           backupschema = ''
 
         POSTDATA = JSON.stringify ({
-          token: config.cmonrpcToken 
+          token: cmon.getToken(args.cluster) 
           operation: "getHosts"
         })
         cmon.postUrl res, "/" + clusterid + "/stat", POSTDATA, (err, list, body) ->
@@ -105,9 +108,54 @@ module.exports = (robot) ->
               job = cmon.defineBackup(hosts, backuptype, backupschema)
               cmon.scheduleBackup(robot, res, clusterid, job)
             else
-              console.log(hosts)
               res.send("Can't schedule backup as there are no suitable hosts in this cluster.")
 
+  robot.respond /createreport (.*)/i, (res) ->
+    if args = cmon.getArguments(res.envelope.user, res.match[1])
+      if typeof args.cluster is 'undefined'
+        res.send("Wrong parameters given. Usage: createreport cluster <clusterid>")
+      else
+        POSTDATA = JSON.stringify ({
+          token: cmon.getToken(args.cluster)
+          name: "default"
+          username: "ccbot"
+          operation: "generatereport"
+        })
+        res.send("Creating report ...")
+        cmon.postUrl res, '/' + args.cluster + '/reports', POSTDATA, (err, list, body) ->
+          rc = JSON.parse body
+          if rc.requestStatus == 'ok'
+              res.send("Name: #{rc.data.name}\nType: #{rc.data.type}\nPath: #{rc.data.path}")
+          else
+            res.send("#{rc.errorString}")
+
+  robot.respond /listreports (.*)/i, (res) ->
+    if args = cmon.getArguments(res.envelope.user, res.match[1])
+      if typeof args.cluster is 'undefined'
+        res.send("Wrong parameters given. Usage: listreports cluster <clusterid>")
+      else
+        POSTDATA = JSON.stringify ({
+          token: cmon.getToken(args.cluster)
+          operation: "listreports"
+        })
+        res.send("Reports for cluster ID #{args.cluster}")
+        cmon.postUrl res, '/' + args.cluster + '/reports', POSTDATA, (err, list, body) ->
+          rc = JSON.parse body
+          if rc.requestStatus == 'ok'
+            res.send("Created | Filename | Type | Created By | Path | Recipients")
+            months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            for report in rc.data
+              created = new Date(report.timestamp*1000)
+              year = created.getFullYear()
+              month = months[created.getMonth()]
+              day = created.getDate()
+              hour = created.getHours()
+              mins = created.getMinutes()
+              secs = created.getSeconds()
+              time = year + '-' + month + '-' + day + ' ' + hour + ':' + mins + ':' + secs
+              res.send(time + "| #{report.name} | #{report.type} | #{report.generatedby} | #{report.path} | #{report.recipients}")
+          else
+            res.send("#{rc.errorString}")
 
   # Generic hook on "job" to display the status of jobs within Clustercontrol
   # The interval is set at 1 second
@@ -141,7 +189,8 @@ module.exports = (robot) ->
   prevClusterState = {}
   clusterIntervalId = setInterval () ->
     POSTDATA = JSON.stringify ({
-      token: config.cmonrpcToken
+      operation: "getHosts"
+      token: cmon.getToken(0)
     })
     cmon.postUrl robot, '/0/clusters', POSTDATA, (err, list, body) ->
       cmon.cmonGetCluster robot, err, list, body, (data) ->
@@ -150,11 +199,14 @@ module.exports = (robot) ->
             # Cluster state has changed since the previous polling
             if prevClusterState[clusterid].status isnt cluster.status
               if cluster.status <= 2
-                  robot.messageRoom config.cmonrpcMsgroom, "Cluster #{cluster.name} regained a healthy state: #{cluster.statusText}"
+                  robot.messageRoom config.cmonrpcMsgroom, "Cluster '#{cluster.name}' regained a healthy state: #{cluster.statusText}"
               # Degraded cluster detected. Let's get some information on the cluster and print that
               if cluster.status > 2
-                robot.messageRoom config.cmonrpcMsgroom, "Cluster #{cluster.name} in unhealthy state: #{cluster.statusText}"
-                POSTDATA = '{ "token": "'+ config.cmonrpcToken +'", "operation": "getHosts" }' 
+                robot.messageRoom config.cmonrpcMsgroom, "Cluster '#{cluster.name}' in unhealthy state: #{cluster.statusText}"
+                POSTDATA JSON.stringify ({
+                  operation: "getHosts"
+                  token: cmon.getToken(cluster.id)
+                }) 
                 url = "/" + cluster.id + "/stat"
                 cmon.postUrl robot, url, POSTDATA, (err, res, body) ->
                   cmon.cmonGetClusterHosts robot, err, list, body, (hosts) ->
@@ -167,10 +219,9 @@ module.exports = (robot) ->
           prevClusterState = data
           for cluster_i, cluster of data
             if cluster.status > 2
-              console.log ('message')
               robot.messageRoom config.cmonrpcMsgroom, "Cluster #{cluster.name} in unhealthy state: #{cluster.statusText}"
               POSTDATA = JSON.stringify ({
-                token: config.cmonrpcToken
+                token: cmon.getToken(cluster.id)
                 operation: "getHosts"
               })
               url = "/" + cluster.id + "/stat"
@@ -197,7 +248,7 @@ module.exports = (robot) ->
             lastJobs[0] = job
     # Get jobs per cluster
     POSTDATA = JSON.stringify ({
-      token: config.cmonrpcToken
+      token: cmon.getToken(0)
     })
     cmon.postUrl robot, '/0/clusters', POSTDATA, (err, list, body) ->
       cmon.cmonGetCluster robot, err, list, body, (data) ->
@@ -237,49 +288,3 @@ module.exports = (robot) ->
                     lastJobs[cluster.id] = job
   , 1000
 
-  robot.respond /createreport (.*)/i, (res) ->$
-    if args = cmon.getArguments(res.envelope.user, res.match[1])$
-      if typeof args.cluster is 'undefined'$
-        res.send("Wrong parameters given. Usage: createreport cluster <clusterid>")$
-      else$
-        POSTDATA = JSON.stringify ({$
-          token: config.cmonrpcToken$
-          name: "default"$
-          username: "ccbot"$
-          operation: "generatereport"$
-        })$
-        res.send("Creating report ...")$
-        cmon.postUrl res, '/' + args.cluster + '/reports', POSTDATA, (err, list, body) ->$
-          rc = JSON.parse body$
-          if rc.requestStatus == 'ok'$
-              res.send("Name: #{rc.data.name}\nType: #{rc.data.type}\nPath: #{rc.data.path}")$
-          else$
-            res.send("#{rc.errorString}")$
-
-  robot.respond /listreports (.*)/i, (res) ->$
-    if args = cmon.getArguments(res.envelope.user, res.match[1])$
-      if typeof args.cluster is 'undefined'$
-        res.send("Wrong parameters given. Usage: listreports cluster <clusterid>")$
-      else$
-        POSTDATA = JSON.stringify ({$
-          token: config.cmonrpcToken$
-          operation: "listreports"$
-        })$
-        res.send("Reports for cluster ID #{args.cluster}")$
-        cmon.postUrl res, '/' + args.cluster + '/reports', POSTDATA, (err, list, body) ->$
-          rc = JSON.parse body$
-          if rc.requestStatus == 'ok'$
-            res.send("Created | Filename | Type | Created By | Path | Recipients")$
-            months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']$
-            for report in rc.data$
-              created = new Date(report.timestamp*1000)$
-              year = created.getFullYear()$
-              month = months[created.getMonth()]$
-              day = created.getDate()$
-              hour = created.getHours()$
-              mins = created.getMinutes()$
-              secs = created.getSeconds()$
-              time = year + '-' + month + '-' + day + ' ' + hour + ':' + mins + ':' + secs$
-              res.send(time + "| #{report.name} | #{report.type} | #{report.generatedby} | #{report.path} | #{report.recipients}")$
-          else$
-            res.send("#{rc.errorString}")$

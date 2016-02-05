@@ -1,0 +1,89 @@
+#!/bin/bash
+# hubot
+# chkconfig: 345 20 80
+# description: hubot
+# processname: hubot
+
+# REFERENCE: http://werxltd.com/wp/2012/01/05/simple-init-d-script-template/
+
+# This script assumes you have a user called "hubot" on your system and that hubot is installed in /opt/hubot
+
+# Save Environement Variables in /opt/hubot/hubot.env
+# e.g
+#   export HUBOT_GTALK_USERNAME='hubot@example.com'
+#   export HUBOT_GTALK_PASSWORD='abc123''
+#   export HUBOT_GTALK_WHITELIST_DOMAINS='example.com'
+source /var/lib/hubot/hubot.env
+
+DAEMON="${HUBOT_DIR}/bin/hubot"
+
+DAEMONOPTS=""
+if [ ! -z "${HUBOT_NAME}" ]; then
+    DAEMONOPTS="${DAEMONOPTS} --name ${HUBOT_NAME}"
+fi
+
+if [ ! -z "${HUBOT_ADAPTER}" ]; then
+    DAEMONOPTS="${DAEMONOPTS} --adapter ${HUBOT_ADAPTER}"
+fi
+
+
+NAME=ccbot
+USER=root
+DESC="hubot"
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=/etc/init.d/$NAME
+
+case "$1" in
+start)
+    cd $HUBOT_DIR
+    printf "%-50s" "Starting $DESC..."
+    PID=`runuser -c "source $HUBOT_DIR/hubot.env && cd $HUBOT_DIR && $DAEMON $DAEMONOPTS" - $USER  >> /var/log/hubot 2>&1 & echo $!`
+    #echo "Saving PID" $PID " to " $PIDFILE
+    if [ -z $PID ]; then
+        printf "%s\n" "Fail"
+    else
+        echo $PID > $PIDFILE
+        printf "%s\n" "Ok"
+    fi
+;;
+status)
+    printf "%-50s" "Checking $DESC..."
+    if [ -f $PIDFILE ]; then
+        PID=`cat $PIDFILE`
+        if [ -z "`ps axf | grep ${PID} | grep -v grep`" ]; then
+            printf "%s\n" "Process dead but pidfile exists"
+        else
+            echo "Running"
+        fi
+    else
+        printf "%s\n" "Service not running"
+    fi
+;;
+stop)
+    printf "%-50s" "Stopping $DESC"
+        PID=`cat $PIDFILE`
+    if [ -f $PIDFILE ]; then
+        kill $PID
+        printf "%s\n" "Ok"
+        rm -f $PIDFILE
+        # Ensure node also gets killed
+        sleep 2
+        nodeps=`ps ax | grep node | grep hubot | awk '{print $1}'`
+        if [ ! -z $nodeps ]; then
+            kill $nodeps
+        fi
+    else
+        printf "%s\n" "pidfile not found"
+    fi
+;;
+
+restart)
+  	$0 stop
+  	$0 start
+;;
+
+*)
+        echo "Usage: $0 {status|start|stop|restart}"
+        exit 1
+esac
+
