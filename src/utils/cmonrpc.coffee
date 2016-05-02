@@ -51,9 +51,9 @@ class Cmonrpc
               cmon = new Cmonrpc()
               cmon.cmonHostStatus(msg, err, res, body)
       else
-        console.log(err)
+        console.log("HTTP error on retrieving cluster status:" + err)
     catch error
-      console.log (error)
+      console.log ("Error on retrieving cluster status:" + error)
 
   cmonHostStatus: (msg, err, list, body) ->
     messages = []
@@ -65,9 +65,9 @@ class Cmonrpc
             description = if host.description then host.description else host.role
             msg.send  "#{host.hostname}: #{description} (#{host.nodetype})"
       else
-        console.log(err)
+        console.log("HTTP error on retrieving host status: " + err)
     catch error
-      console.log (error)
+      console.log ("Error on retrieving host status:" + error)
 
   cmonGetClusterHosts: (msg, err, list, body, callback) ->
     try
@@ -75,9 +75,9 @@ class Cmonrpc
         clusterdata = JSON.parse body
         callback(clusterdata.data)
       else
-        console.log(err)
+        console.log("HTTP error on retrieving clusterhost status: " + err)
     catch error
-      console.log (error)
+      console.log ("Error on retrieving clusterhost status: " + error)
 
   cmonGetCluster: (msg, err, list, body, callback) ->
     try
@@ -89,9 +89,9 @@ class Cmonrpc
           if (data.data)
             callback(data.data)
       else
-        console.log(err)
+        console.log("HTTP error on retrieving Cluster data: " + err)
     catch error
-      console.log (error)
+      console.log ("Error on retrieving Cluster data: " + error)
 
   cmonGetClusterLogfiles: (msg, err, list, body, callback) ->
     try
@@ -99,9 +99,9 @@ class Cmonrpc
         data = JSON.parse body
         callback(data.data)
       else
-        console.log(err)
+        console.log("HTTP error on retrieving cluster log files: " + err)
     catch error
-      console.log (error)
+      console.log ("Error on retrieving cluster log files: " + error)
 
   cmonGetClusterLoglines: (msg, err, list, body, callback) ->
     try
@@ -109,9 +109,9 @@ class Cmonrpc
         data = JSON.parse body
         callback(data.data)
       else
-        console.log(err)
+        console.log("HTTP error on retrieving cluster log lines: " + err)
     catch error
-      console.log (error)
+      console.log ("Error on retrieving cluster log lines: " + error)
 
 
   defineBackup: (clusterdata, backuptype, backupschema) ->
@@ -158,14 +158,9 @@ class Cmonrpc
       cmon = new Cmonrpc()
       cmon.parseMessage err, list, body, (jobdata) ->
         if jobdata.requestStatus is "ok"
-          msg.send "Backup scheduled under #{jobdata.jobId}"
-          # robot.emit "job", {
-          #     user: msg.envelope.user
-          #     jobId: jobdata.jobId
-          #     clusterId: clusterid
-          # }
+          msg.send "Backup for cluster #{clusterid} scheduled under #{jobdata.jobId}"
         else
-          msg.send "Backup could not be scheduled: #{jobdata.requestStatus} #{jobdata.status} ( #{jobdata.statusText} )"
+          msg.send "Backup for cluster #{clusterid} could not be scheduled: #{jobdata.requestStatus} #{jobdata.status} ( #{jobdata.statusText} )"
 
   getJobs: (robot, clusterid, callback) ->
     POSTDATA = JSON.stringify ({
@@ -179,7 +174,7 @@ class Cmonrpc
           jobStatus = JSON.parse body
           callback(jobStatus)
         catch error
-          console.log(error)
+          console.log("Error on retrieving cluster jobs: " + error)
 
   getJobStatus: (robot, job, callback) ->
     POSTDATA = JSON.stringify ({
@@ -193,11 +188,11 @@ class Cmonrpc
           jobStatus = JSON.parse body
           callback(jobStatus)
         catch error
-          console.log(error)
+          console.log("Error on retrieving job status: " + error)
 
   getJobMessages: (robot, job, callback) ->
     POSTDATA = JSON.stringify ({
-      token: @getToken(clusterid)
+      token: @getToken(job.clusterId)
       operation: "getJobMessages"
       jobId: job.jobId
     })
@@ -207,7 +202,7 @@ class Cmonrpc
           jobMessages = JSON.parse body
           callback(jobMessages.messages)
         catch error
-          console.log(error)
+          console.log("Error on retrieving job messages: " + error)
 
   parseMessage: (err, list, body, callback) ->
     if list.statusCode is 200
@@ -215,9 +210,9 @@ class Cmonrpc
         data = JSON.parse body
         callback(data)
       catch error
-        console.log(error)
+        console.log("Error while parsing JSON data: " + error)
     else
-      console.log(err)
+      console.log("HTTP error on retrieving JSON data: " + err)
 
   # Parses the given arguments and removes whitespace where possible
   getArguments: (user, string) ->

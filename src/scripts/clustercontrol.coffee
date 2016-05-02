@@ -7,7 +7,8 @@
 #  HUBOT_RPC_PORT
 #
 # Commands:
-#   hubot status - Lists the clusters in ClusterControl and shows their status
+#   hubot status - Displayes all clusters in ClusterControl and shows their status
+#   hubot list clusters - Lists all clusters with their name, id and status
 #   hubot backup cluster <clusterid> - Schedules a back for an entire cluster using xtrabackup
 #   hubot backup cluster <clusterid> schema <schema> - Schedules a backup for a single schema using mysqldump
 #   hubot lastlog cluster <cluster> host <host> filename <filename> limit <limit> - Returns the last log lines of the given cluster/host/filename
@@ -24,6 +25,7 @@
 
 config = require '../config/config'
 Cmonrpc = require '../utils/cmonrpc'
+striptags = require('striptags');
 cmon = new Cmonrpc()
 
 module.exports = (robot) ->
@@ -35,7 +37,17 @@ module.exports = (robot) ->
     cmon.postUrl res, '/0/clusters', POSTDATA, (err, list, body) ->
       cmon.cmonGetCluster robot, err, list, body, (data) ->
         for clusterid, cluster of data
-          res.send("Cluster '#{cluster.name}' state: #{cluster.statusText}")
+          res.send("Cluster #{cluster.id} ('#{cluster.name}') state: #{cluster.statusText}")
+
+  # Lists the clusters
+  robot.respond /list clusters/i, (res) ->
+    POSTDATA = JSON.stringify ({
+      token: cmon.getToken(0)
+    })
+    cmon.postUrl res, '/0/clusters', POSTDATA, (err, list, body) ->
+      cmon.cmonGetCluster robot, err, list, body, (data) ->
+        for clusterid, cluster of data
+          res.send("Cluster #{cluster.id}: Name: #{cluster.name}, ID: #{cluster.id}, state: #{cluster.statusText}")
 
   robot.respond /showlogs (.*)/i, (res) ->
     if args = cmon.getArguments(res.envelope.user, res.match[1])
@@ -161,7 +173,6 @@ module.exports = (robot) ->
   # The interval is set at 1 second
   robot.on "job", (job) ->
     robot.send job.user, "Has scheduled a job #{job.jobId}!"
-
     status = "DEFINED"
     prevStatus = status
     intervalId = setInterval () ->
@@ -194,30 +205,32 @@ module.exports = (robot) ->
     })
     cmon.postUrl robot, '/0/clusters', POSTDATA, (err, list, body) ->
       cmon.cmonGetCluster robot, err, list, body, (data) ->
-        if prevClusterState.length > 0
+        if typeof prevClusterState is not 'undefined'
           for clusterid, cluster of data
-            # Cluster state has changed since the previous polling
-            if prevClusterState[clusterid].status isnt cluster.status
-              if cluster.status <= 2
+            if typeof prevClusterState[clusterid] is not 'undefined'
+              # Cluster state has changed since the previous polling
+              if prevClusterState[clusterid].status isnt cluster.status
+                # Set the new cluster state
+                prevClusterState[clusterid] = cluster
+                if cluster.status <= 2
                   robot.messageRoom config.cmonrpcMsgroom, "Cluster '#{cluster.name}' regained a healthy state: #{cluster.statusText}"
-              # Degraded cluster detected. Let's get some information on the cluster and print that
-              if cluster.status > 2
-                robot.messageRoom config.cmonrpcMsgroom, "Cluster '#{cluster.name}' in unhealthy state: #{cluster.statusText}"
-                POSTDATA JSON.stringify ({
-                  operation: "getHosts"
-                  token: cmon.getToken(cluster.id)
-                }) 
-                url = "/" + cluster.id + "/stat"
-                cmon.postUrl robot, url, POSTDATA, (err, res, body) ->
-                  cmon.cmonGetClusterHosts robot, err, list, body, (hosts) ->
-                    for hostid, host of hosts
-                      if host.connected == false
-                        robot.messageRoom 'general', "#{host.hostname}: #{host.description} (#{host.nodetype})"
-          prevClusterState = data
+                # Degraded cluster detected. Let's get some information on the cluster and print that
+                if cluster.status > 2
+                  robot.messageRoom config.cmonrpcMsgroom, "Cluster '#{cluster.name}' in unhealthy state: #{cluster.statusText}"
+                  POSTDATA JSON.stringify ({
+                    operation: "getHosts"
+                    token: cmon.getToken(cluster.id)
+                  }) 
+                  url = "/" + cluster.id + "/stat"
+                  cmon.postUrl robot, url, POSTDATA, (err, res, body) ->
+                    cmon.cmonGetClusterHosts robot, err, list, body, (hosts) ->
+                      for hostid, host of hosts
+                        if host.connected == false
+                          robot.messageRoom 'general', "#{host.hostname}: #{host.description} (#{host.nodetype})"
         else
           #Starting up the cluster polling, so give warning if a cluster is not okay
-          prevClusterState = data
           for cluster_i, cluster of data
+            prevClusterState[cluster.id] = cluster
             if cluster.status > 2
               robot.messageRoom config.cmonrpcMsgroom, "Cluster #{cluster.name} in unhealthy state: #{cluster.statusText}"
               POSTDATA = JSON.stringify ({
@@ -270,21 +283,23 @@ module.exports = (robot) ->
                     catch
                         statusMessage = job.jobStr
                     if job.jobId isnt lastJobs[cluster.id].jobId
-                      robot.messageRoom config.cmonrpcMsgroom, "New job (#{job.jobId}) has been scheduled on cluster #{cluster.id}: #{statusMessage} (#{job.status})"
+                      robot.messageRoom config.cmonrpcMsgroom, "New job (#{job.jobId}) has been scheduled on cluster #{cluster.id} (#{cluster.name}): #{statusMessage} (#{job.status})"
                     else
                       if job.status isnt lastJobs[cluster.id].status
                         if job.status is "FINISHED"
                           cmon.getJobMessages robot, {jobId: job.jobId, clusterId: cluster.id}, (jobMessages) ->
                             for messageid, message of jobMessages[-1..]
-                              robot.messageRoom config.cmonrpcMsgroom, "Finished job #{job.jobId}: #{message.message}"
+                              cleanMsg = striptags(message.message);
+                              robot.messageRoom config.cmonrpcMsgroom, "Finished job #{job.jobId} on cluster #{cluster.id} (#{cluster.name}): #{cleanMsg}"
                         # If the job failed we need to figure out what went wrong from the last three entries
                         else if job.status is "FAILED"
                           cmon.getJobMessages robot, {jobId: job.jobId, clusterId: cluster.id}, (jobMessages) ->
                             for messageid, message of jobMessages
                               do (message) ->
                                 if message.exitCode isnt 0
-                                  robot.messageRoom 'general', "Error in job #{job.jobId}: #{message.message}"
-                            robot.messageRoom config.cmonrpcMsgroom, "Job #{job.jobId} ended in status: #{job.status} "
+                                  cleanMsg = striptags(message.message);
+                                  robot.messageRoom 'general', "Error in job #{job.jobId} on cluster #{cluster.id} (#{cluster.name}): #{cleanMsg}"
+                            robot.messageRoom config.cmonrpcMsgroom, "Job #{job.jobId} on cluster #{cluster.id} (#{cluster.name}) ended in status: #{job.status} "
                     lastJobs[cluster.id] = job
   , 1000
 
