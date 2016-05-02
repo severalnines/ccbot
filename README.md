@@ -41,6 +41,7 @@ For security we create a separate hubot user to ensure Hubot itself can’t do a
 
 To install the Hubot framework from scratch follow the following procedure where the adapter is the chat service you are using (e.g. slack, hipchat, flowdock):
 - sudo npm install -g yo generator-hubot
+- sudo npm install striptags
 - sudo su - hubot
 - cd /var/lib/hubot
 - yo hubot --name CCBot --adapter adapter
@@ -122,10 +123,19 @@ Note: when you are in a private chat with the chatbot you must omit the addressi
 Syntax:
 status
 
-Lists the clusters in ClusterControl and shows their status.
+Displayes all clusters in ClusterControl and shows their status.
 
 Example:
 @ccbot status
+
+#### List clusters
+Syntax:
+list clusters
+
+Lists all clusters with their name, id and status.
+
+Example:
+@ccbot list clusters
 
 #### Full backup
 Syntax:
