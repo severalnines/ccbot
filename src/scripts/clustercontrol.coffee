@@ -42,7 +42,14 @@ module.exports = (robot) ->
         msg.send error
         msg.send stderr
       else
-        msg.send stdout
+        if robot.adapterName == "slack"
+          msg.send "```" + stdout + "```"
+        else if robot.adapterName == "hipchat"
+          msg.send "/quote " + stdout
+        else if robot.adapterName == "flowdock"
+          msg.send "```" + stdout + "```"
+        else
+          msg.send stdout
 
   # Fetches the status of the clusters
   robot.respond /status/i, (res) ->
