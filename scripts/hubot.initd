@@ -1,8 +1,15 @@
 #!/bin/bash
-# hubot
-# chkconfig: 345 20 80
-# description: hubot
+# chkconfig: 2345 20 80
+# description: hubot start/stop script
 # processname: hubot
+### BEGIN INIT INFO
+# Provides:             hubot
+# Required-Start:       $remote_fs $syslog
+# Required-Stop:        $remote_fs $syslog
+# Default-Start:        2 3 4 5
+# Default-Stop:         0 1 6
+# Short-Description:    hubot - chatops
+### END INIT INFO
 
 # REFERENCE: http://werxltd.com/wp/2012/01/05/simple-init-d-script-template/
 
@@ -37,7 +44,7 @@ case "$1" in
 start)
     cd $HUBOT_DIR
     printf "%-50s" "Starting $DESC..."
-    PID=`runuser -c "source $HUBOT_DIR/hubot.env && cd $HUBOT_DIR && $DAEMON $DAEMONOPTS" - $USER  >> /var/log/hubot 2>&1 & echo $!`
+    PID=`su - $USER -c "source $HUBOT_DIR/hubot.env && cd $HUBOT_DIR && $DAEMON $DAEMONOPTS" >> /var/log/hubot 2>&1 & echo $!`
     #echo "Saving PID" $PID " to " $PIDFILE
     if [ -z $PID ]; then
         printf "%s\n" "Fail"
