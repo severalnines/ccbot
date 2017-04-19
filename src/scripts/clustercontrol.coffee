@@ -7,6 +7,7 @@
 #  HUBOT_RPC_PORT
 #
 # Commands:
+#   hubot s9s <args> - runs the s9s command line client
 #   hubot status - Displayes all clusters in ClusterControl and shows their status
 #   hubot list clusters - Lists all clusters with their name, id and status
 #   hubot backup cluster <clusterid> - Schedules a back for an entire cluster using xtrabackup
@@ -29,6 +30,20 @@ striptags = require('striptags');
 cmon = new Cmonrpc()
 
 module.exports = (robot) ->
+  # Runs the s9s command line if it's installed
+  robot.respond /s9s (.*)$/i, (msg) ->
+    @exec = require('child_process').exec
+    cmd = msg.match[1]
+    cmd = "s9s ".concat cmd
+    msg.send "Running [#{cmd}]..."
+
+    @exec cmd, (error, stdout, stderr) ->
+      if error
+        msg.send error
+        msg.send stderr
+      else
+        msg.send stdout
+
   # Fetches the status of the clusters
   robot.respond /status/i, (res) ->
     POSTDATA = JSON.stringify ({
