@@ -14,13 +14,11 @@ Copy the following files from the to your existing Hubot instance in the respect
 - src/utils/cmonrpc.coffee
 
 Then add the following parameters in your Hubot startup script if necessary:
-- export HUBOT_CMONRPC_TOKENS=’TOKEN0,TOKEN1,TOKEN2,TOKEN3’
 - export HUBOT_CMONRPC_HOST=’your clustercontrol host’
 - export HUBOT_CMONRPC_PORT=9500
 - export HUBOT_CMONRPC_MSGROOM=’General’
 
 These variables will be picked up by the config.coffee file and used inside the cmonrpc calls.
-The HUBOT_CMONRPC_TOKENS variable should contain the RPC tokens set in /etc/cmon.cnf and /etc/cmon.d/cmon_[cluster].cnf configuration files. These tokens are used to secure the CMON RPC api and hence have to be filled in when used.
 
 For configuration of the HUBOT_CMONRPC_MSGROOM variable, see below in the standalone installation.
 Bind ClusterControl to external ip addres
@@ -59,7 +57,7 @@ Copy the following files to the ccbot directory:
 - src/utils/cmonrpc.coffee
 
 Installing Hubot startup scripts
-Obviously you can run Hubot in the background or a Screen session, but it would be much better if we can daemonize Hubot using proper start up scripts. We supply three startup scripts for CCBot: a traditional Linux Standard Base init script (start, stop, status), a systemd wrapper for this init script and a supervisord script. 
+Obviously you can run Hubot in the background or a Screen session, but it would be much better if we can daemonize Hubot using proper start up scripts. We supply three startup scripts for CCBot: a traditional Linux Standard Base init script (start, stop, status), a systemd wrapper for this init script and a supervisord script.
 
 Linux Standard Base init script:
 For Redhat/Centos 6.x (and lower):
@@ -96,12 +94,9 @@ For Debian/Ubuntu:
 
 ### Hubot parameters
 Then modify the following parameters in the Hubot environment script (/var/lib/hubot/hubot.env) or supervisord config if necessary:
-- export HUBOT_CMONRPC_TOKENS=’TOKEN0,TOKEN1,TOKEN2,TOKEN3’
 - export HUBOT_CMONRPC_HOST=’localhost’
 - export HUBOT_CMONRPC_PORT=9500
 - export HUBOT_CMONRPC_MSGROOM=’General’
-
-The HUBOT_CMONRPC_TOKENS variable should contain the RPC tokens set in /etc/cmon.cnf and /etc/cmon.d/cmon_cluster.cnf configuration files. These tokens are used to secure the CMON RPC api and hence have to be filled in when used. If you have no tokens in your configuration you can leave this variable empty.
 
 The HUBOT_CMONRPC_MSGROOM variable contains the team’s room the chatbot has to send its messages to. For the chat services we tested this with it should be something like this:
 - Slack: use the textual ‘General’ chatroom or a custom textual one.
@@ -111,76 +106,49 @@ The HUBOT_CMONRPC_MSGROOM variable contains the team’s room the chatbot has to
 
 
 ## Hubot commands
-You can operate Hubot by giving it commands in the chatroom. In principle it does not matter whether you issue to command in a general chatroom where Hubot is present or if it were in a private chat with the bot itself. Sending a command will be as following:
+You can operate Hubot by giving it **s9s command line** commands in the chatroom. In principle it does not matter whether you issue to command in a general chatroom where Hubot is present or if it were in a private chat with the bot itself. Sending a command will be as following:
 botname command
-Where botname is the name of your Hubot bot, so if in our example Hubot is called “ccbot” and the command is “status” you would send the command be as following:
-@ccbot status
+Where botname is the name of your Hubot bot, so if in our example Hubot is called “ccbot” and the command is “node list” you would send the command be as following:
+@ccbot s9s node --list
 
 Note: when you are in a private chat with the chatbot you must omit the addressing of the bot.
 
 ### Command list
-#### Status
-Syntax:
-status
+The commands that you can use are identical with what the **s9s command line** tool supports. For more details and an introduction to the **s9s command line** tool, check this [blog post](https://severalnines.com/blog/how-use-s9s-command-line-interface-clustercontrol).
 
-Displayes all clusters in ClusterControl and shows their status.
+#### s9s --help
+Syntax: s9s --help
+
+Shows all available commands in the s9s command line tool.
 
 Example:
-@ccbot status
+@ccbot s9s --help
 
+### A few examples
 #### List clusters
-Syntax:
+Syntax: s9s cluster --list --long
 list clusters
 
 Lists all clusters with their name, id and status.
 
 Example:
-@ccbot list clusters
+@ccbot s9s cluster --list --long
 
 #### Full backup
-Syntax:
-backup cluster _clusterid_ host _hostname_
+Syntax: s9s backup --create --backup-method=&lt;backup method&gt; --cluster-id=&lt;cluster id&gt; --nodes=&lt;list of node:port&gt; --backup-directory=&lt;backup directory&gt;
 
-Schedules a full backup for an entire cluster using xtrabackup. Host is an optional parameter, if not provided CCBot will pick the first host from the cluster.
-
-Example:
-@ccbot backup cluster 1 host 10.10.12.23
-
-#### Schema backup
-Syntax:
-@backup cluster _clusterid_ schema _schema_ host _hostname_
-
-Schedules a backup for a single schema using mysqldump. Host is an optional parameter, if not provided CCBot will pick the first host from the cluster.
+Creates a full backup using the specified backup method, backup node and bacup directory.
 
 Example:
-@ccbot backup cluster 1 schema important_schema
+@ccbot s9s backup --create --backup-method=xtrabackupfull --cluster-id=1 --nodes=10.0.0.5:3306 --backup-directory=/storage/backups
 
-#### Create operational report
-Syntax:
-createreport cluster _clusterid_
+#### List configuration
+Syntax: s9s node --list-config --nodes=&lt;list of nodes&gt;
 
-Creates an operational report for the given cluster
-
-Example:
-@ccbot createreport cluster 1
-
-#### List operational reports
-Syntax:
-listreports cluster _clusterid_
-
-Lists all available reports for the given cluster
+List the configuration for the specified node(s).
 
 Example:
-@ccbot listreports cluster 1
-
-#### Last loglines
-Syntax:
-lastlog cluster _cluster_ host _host_ filename _filename_ limit _limit_
-
-Returns the last log lines of the given cluster/host/filename.
-
-Example:
-@ccbot lastlog cluster 1 host 10.10.12.23 filename /var/log/mysqld.log limit 5
+@ccbot s9s node --list-config --nodes=10.0.0.3 | grep max_
 
 
 
