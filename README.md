@@ -127,12 +127,19 @@ Example:
 ### A few examples
 #### List clusters
 Syntax: s9s cluster --list --long
-list clusters
 
 Lists all clusters with their name, id and status.
 
 Example:
 @ccbot s9s cluster --list --long
+
+#### List nodes
+Syntax: s9s node --list --long
+
+Lists all nodes with their name, id and status.
+
+Example:
+@ccbot s9s node --list --long
 
 #### Full backup
 Syntax: s9s backup --create --backup-method=&lt;backup method&gt; --cluster-id=&lt;cluster id&gt; --nodes=&lt;list of node:port&gt; --backup-directory=&lt;backup directory&gt;
